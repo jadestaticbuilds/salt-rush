@@ -1,1 +1,724 @@
-<h1>Salt Rush</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Salt Rush</title>
+<style>
+  :root{
+    --salt:#f4f1e8; --sky:#bcd9e8; --ink:#1d2b33; --mut:#5c6f79;
+    --accent:#e07b2a; --wind:#2f7fc4; --danger:#c0392b;
+    --panel:rgba(255,255,255,.88); --line:rgba(29,43,51,.16);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--sky);overflow:hidden;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--ink);
+    -webkit-user-select:none;user-select:none;touch-action:none;}
+  #app{position:fixed;inset:0;overflow:hidden;}
+  #game{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;
+    padding:calc(8px + env(safe-area-inset-top)) 12px 8px;pointer-events:none;z-index:5;}
+  #hud .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:8px 12px;font-size:14px;font-weight:700;letter-spacing:.04em;white-space:nowrap;color:var(--ink);}
+  #distPill{color:var(--wind);}
+  #windPill{display:flex;align-items:center;gap:6px;}
+  #windArrow{display:inline-block;font-size:16px;line-height:1;transition:transform .2s linear;}
+  #controls{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:flex-end;
+    padding:0 14px calc(14px + env(safe-area-inset-bottom));z-index:5;pointer-events:none;}
+  .btn{pointer-events:auto;min-width:48px;min-height:48px;border-radius:14px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);font-size:15px;font-weight:800;letter-spacing:.05em;
+    padding:12px 16px;cursor:pointer;}
+  .btn:active{transform:scale(.96);}
+  #rightBtns{display:flex;gap:10px;}
+  .iconbtn{width:48px;padding:12px 0;text-align:center;}
+  .overlay{position:absolute;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;background:rgba(244,241,232,.82);backdrop-filter:blur(3px);}
+  .overlay[hidden]{display:none;}
+  .title{font-size:40px;font-weight:900;letter-spacing:.12em;color:var(--ink);
+    text-shadow:0 2px 18px rgba(224,123,42,.35);margin:0 0 6px;}
+  .sub{color:var(--mut);font-size:15px;margin:0 0 18px;max-width:340px;line-height:1.5;}
+  .howto{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    font-size:14px;line-height:1.65;color:var(--ink);max-width:340px;margin:0 0 20px;text-align:left;}
+  .howto b{color:var(--accent);}
+  .howto .w{color:var(--wind);}
+  .bigbtn{min-height:56px;font-size:17px;padding:16px 28px;border-radius:16px;border:2px solid var(--accent);
+    background:rgba(224,123,42,.14);color:var(--ink);font-weight:900;letter-spacing:.08em;cursor:pointer;}
+  .bigbtn:active{transform:scale(.97);}
+  .best{margin-top:14px;color:var(--mut);font-size:13px;letter-spacing:.05em;}
+  .stats{display:flex;gap:18px;margin:0 0 20px;}
+  .stats div{text-align:center;}
+  .stats .n{font-size:28px;font-weight:900;color:var(--ink);}
+  .stats .l{font-size:12px;color:var(--mut);letter-spacing:.08em;margin-top:2px;}
+  #overTitle.wrecked{color:var(--danger);}
+  #toast{position:absolute;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 16px;
+    font-size:13px;font-weight:700;color:var(--ink);z-index:6;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
+  #toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <div id="hud">
+    <div class="pill" id="distPill">0 m</div>
+    <div class="pill" id="windPill" aria-label="Wind direction"><span id="windArrow">↓</span><span id="windTxt">wind</span></div>
+    <div class="pill" id="hullPill" aria-label="Hull">◆◆◆</div>
+  </div>
+  <div id="toast"></div>
+  <div id="controls">
+    <div></div>
+    <div id="rightBtns">
+      <button class="btn iconbtn" id="soundBtn" aria-label="Toggle sound">♪</button>
+      <button class="btn iconbtn" id="pauseBtn" aria-label="Pause">II</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="startOv">
+    <h1 class="title">SALT RUSH</h1>
+    <p class="sub">A white desert, a big sky, and wind with opinions. Take the little sail kart. Come back with salt in your teeth.</p>
+    <div class="howto">
+      <b>Drag</b> anywhere to steer, or use arrow keys.<br>
+      The sail trims itself. Your heading against the <span class="w">wind</span> sets your speed: sideways to it is fastest, straight at it is slowest.<br>
+      Ride the pale <b>gust streaks</b> for a boost. Thread the orange gates.<br>
+      Rocks and dust devils cost hull plates. Three plates.
+    </div>
+    <button class="bigbtn" id="startBtn">CATCH THE WIND</button>
+    <div class="best" id="startBest"></div>
+  </div>
+
+  <div class="overlay" id="pauseOv" hidden>
+    <h1 class="title" style="font-size:30px">PAUSED</h1>
+    <p class="sub">The wind waits for no one, but it will wait for you.</p>
+    <button class="bigbtn" id="resumeBtn">BACK TO THE FLATS</button>
+  </div>
+
+  <div class="overlay" id="overOv" hidden>
+    <h1 class="title wrecked" id="overTitle">BEACHED</h1>
+    <p class="sub" id="overSub"></p>
+    <div class="stats">
+      <div><div class="n" id="stDist">0</div><div class="l">METERS</div></div>
+      <div><div class="n" id="stGates">0</div><div class="l">GATES</div></div>
+      <div><div class="n" id="stScore">0</div><div class="l">SCORE</div></div>
+    </div>
+    <button class="bigbtn" id="againBtn">SAIL AGAIN</button>
+    <div class="best" id="overBest"></div>
+  </div>
+</div>
+<script>
+'use strict';
+/* Salt Rush: a wind-powered land-sailing game. Single file, phone-first.
+   Pure game-logic functions are kept DOM-free so the node harness can test them. */
+/* ---------- utils ---------- */
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function mulberry32(seed){
+  var s = seed>>>0;
+  return function(){
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    var t = Math.imul(s ^ (s>>>15), 1|s);
+    t = (t + Math.imul(t ^ (t>>>7), 61|t)) ^ t;
+    return ((t ^ (t>>>14))>>>0)/4294967296;
+  };
+}
+function wrapAngle(a){
+  while (a > Math.PI) a -= 2*Math.PI;
+  while (a < -Math.PI) a += 2*Math.PI;
+  return a;
+}
+
+/* ---------- tuning constants (harness-tested) ---------- */
+var PX_PER_M    = 40;
+var BASE_SPEED  = 260;   /* px/s at beam reach, no gust */
+var TURN_RATE   = 2.4;   /* rad/s max turn */
+var PLAYER_SPEED_KEY = 300;
+var HULL_MAX    = 3;
+var INVULN_T    = 1.5;
+var KART_R      = 22;
+var GATE_R      = 52;
+var GATE_SCORE  = 25;
+var GATE_KICK   = 1.25;  /* speed multiplier after threading a gate */
+var GATE_KICK_T = 1.2;   /* seconds the kick lasts */
+var GUST_SPEED  = 150;   /* px/s, along the wind */
+var WIND_BASE   = -Math.PI/2; /* prevailing wind blows toward screen-up at t=0 */
+
+/* Pure: point-of-sail speed factor from off-wind angle (0..PI).
+   Dead downwind 0.5, beam reach 1.0, head to wind 0.35. */
+function sailFactor(off){
+  var o = Math.abs(off);
+  if (o > Math.PI) o = Math.PI;
+  if (o <= Math.PI/2) return 0.5 + 0.5*Math.sin(o);
+  return 1.0 - 0.65*((o - Math.PI/2)/(Math.PI/2));
+}
+/* Pure: kart speed px/s from heading, wind angle, and boost multiplier. */
+function kartSpeed(headA, windA, boost){
+  var off = Math.abs(wrapAngle(headA - windA));
+  return BASE_SPEED * sailFactor(off) * boost;
+}
+/* Pure: prevailing wind angle at time t (slow deterministic veer). */
+function windAt(t){
+  return WIND_BASE + 0.5*Math.sin(t*0.05) + 0.3*Math.sin(t*0.013+2);
+}
+/* Pure: strongest gust strength at a point (0 if none). Gusts are
+   ellipses elongated along their angle a: w = half-width, l = half-length. */
+function gustStrengthAt(x, y, gusts){
+  var s = 0;
+  for (var i = 0; i < gusts.length; i++){
+    var g = gusts[i];
+    var dx = x - g.x, dy = y - g.y;
+    var ca = Math.cos(-g.a), sa = Math.sin(-g.a);
+    var lx = dx*ca - dy*sa, ly = dx*sa + dy*ca;
+    var ex = lx/g.w, ey = ly/g.l;
+    if (ex*ex + ey*ey < 1 && g.strength > s) s = g.strength;
+  }
+  return s;
+}
+/* Pure: boost multiplier from gust strength and point of sail.
+   Good angles catch more of the gust. */
+function boostFor(strength, headA, windA){
+  if (strength <= 0) return 1;
+  var off = Math.abs(wrapAngle(headA - windA));
+  return 1 + strength * (0.45 + 0.55*sailFactor(off));
+}
+/* Pure: difficulty from distance. */
+function difficulty(distM){
+  return {
+    rocks: 6 + Math.min(10, Math.floor(distM/400)),
+    devils: 2 + Math.min(6, Math.floor(distM/600)),
+    devilSpeed: 60 + Math.min(80, distM/300),
+    gustEvery: Math.max(2.5, 6 - distM/800)
+  };
+}
+/* Pure: score from distance and gates. */
+function scoreFor(distM, gates){
+  return Math.floor(distM) + gates * GATE_SCORE;
+}
+/* Pure: circle collision test. */
+function touching(ax, ay, ar, bx, by, br){
+  var dx = ax-bx, dy = ay-by;
+  return dx*dx + dy*dy < (ar+br)*(ar+br);
+}
+
+/* ---------- storage ---------- */
+var store = {
+  get: function(k, dflt){
+    try{
+      var v = (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null;
+      if (v === null || v === undefined) return dflt;
+      var n = parseFloat(v);
+      return isNaN(n) ? dflt : n;
+    }catch(e){ return dflt; }
+  },
+  set: function(k, v){
+    try{ if (typeof localStorage !== 'undefined') localStorage.setItem(k, String(v)); }catch(e){}
+  }
+};
+var K = { best:'sr-best', gates:'sr-gates', sound:'sr-sound', games:'sr-games' };
+
+/* ---------- audio: WebAudio wind synth, zero files ---------- */
+var AU = {
+  ctx:null, master:null, windGain:null, windFilter:null, on:true,
+  init: function(){
+    if (this.ctx) return;
+    try{
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.5;
+      this.master.connect(this.ctx.destination);
+      /* wind bed: looped noise through a bandpass, gain follows speed */
+      var len = this.ctx.sampleRate * 2;
+      var buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      var d = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) d[i] = Math.random()*2-1;
+      var src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+      this.windFilter = this.ctx.createBiquadFilter();
+      this.windFilter.type = 'bandpass'; this.windFilter.frequency.value = 500; this.windFilter.Q.value = 0.6;
+      this.windGain = this.ctx.createGain(); this.windGain.gain.value = 0.05;
+      src.connect(this.windFilter); this.windFilter.connect(this.windGain); this.windGain.connect(this.master);
+      src.start();
+      this.on = store.get(K.sound, 1) === 1;
+      this.master.gain.value = this.on ? 0.5 : 0;
+    }catch(e){}
+  },
+  setWind: function(level){
+    if (!this.ctx || !this.on || !this.windGain) return;
+    try{ this.windGain.gain.setTargetAtTime(0.03 + 0.12*clamp(level,0,1.6), this.ctx.currentTime, 0.3); }catch(e){}
+  },
+  toggle: function(){
+    this.on = !this.on;
+    store.set(K.sound, this.on ? 1 : 0);
+    if (this.master) this.master.gain.value = this.on ? 0.5 : 0;
+    return this.on;
+  },
+  blip: function(freq, dur, vol, type){
+    if (!this.ctx || !this.on) return;
+    try{
+      var t = this.ctx.currentTime;
+      var o = this.ctx.createOscillator(); o.type = type || 'sine'; o.frequency.value = freq;
+      var g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(this.master);
+      o.start(t); o.stop(t + dur + 0.05);
+    }catch(e){}
+  },
+  snap: function(){
+    if (!this.ctx || !this.on) return;
+    try{
+      var t = this.ctx.currentTime;
+      var o = this.ctx.createOscillator(); o.type = 'square'; o.frequency.value = 180;
+      var f = this.ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 900;
+      var g = this.ctx.createGain();
+      g.gain.setValueAtTime(0.22, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(f); f.connect(g); g.connect(this.master);
+      o.start(t); o.stop(t + 0.15);
+    }catch(e){}
+  },
+  chime: function(){ this.blip(523.25, 0.4, 0.16, 'triangle'); var self=this; setTimeout(function(){ self.blip(783.99, 0.6, 0.12, 'triangle'); }, 90); },
+  thud: function(){ this.blip(65, 0.4, 0.3, 'sine'); },
+  gameover: function(){ var self=this; this.blip(196, 0.8, 0.2, 'triangle'); setTimeout(function(){ self.blip(130.8, 1.4, 0.2, 'triangle'); }, 350); }
+};
+
+/* ---------- game state ---------- */
+var G = null;
+function newRun(seed){
+  return {
+    t: 0, seed: seed, rng: mulberry32(seed),
+    px: 0, py: 0, headA: -Math.PI/2,   /* start sailing screen-up */
+    tx: 0, ty: -100, dragging: false,
+    camx: 0, camy: 0,
+    windA: WIND_BASE,
+    hull: HULL_MAX, invuln: 0,
+    dist: 0, gates: 0,
+    gateKick: 0, snapT: 0, wasBoosted: false,
+    rocks: [], devils: [], gatesArr: [], gusts: [],
+    dust: [],
+    gustT: 2,
+    over: false, paused: false, started: false,
+    keys: {}
+  };
+}
+function distM(){ return G.dist / PX_PER_M; }
+
+/* Spawn entities ahead of the kart using the run's seeded rng. */
+function spawnAhead(){
+  var dm = distM();
+  var diff = difficulty(dm);
+  var hx = Math.cos(G.headA), hy = Math.sin(G.headA);
+  function aheadPos(minD, maxD, spread){
+    var a = G.headA + (G.rng()-0.5)*spread;
+    var d = minD + G.rng()*(maxD-minD);
+    return { x: G.px + Math.cos(a)*d, y: G.py + Math.sin(a)*d };
+  }
+  var i, p;
+  for (i = G.rocks.length; i < diff.rocks; i++){
+    p = aheadPos(650, 1050, 2.4);
+    G.rocks.push({ x:p.x, y:p.y, r: 18 + G.rng()*22, seed: G.rng()*10 });
+  }
+  for (i = G.devils.length; i < diff.devils; i++){
+    p = aheadPos(700, 1100, 2.2);
+    var da = G.rng()*Math.PI*2;
+    G.devils.push({ x:p.x, y:p.y, vx: Math.cos(da)*diff.devilSpeed*0.6, vy: Math.sin(da)*diff.devilSpeed*0.6,
+      r: 30, ph: G.rng()*10, spd: diff.devilSpeed });
+  }
+  for (i = G.gatesArr.length; i < 3; i++){
+    p = aheadPos(700, 1000, 1.6);
+    G.gatesArr.push({ x:p.x, y:p.y, r: GATE_R, counted:false, ph: G.rng()*10 });
+  }
+  /* gusts on a timer */
+  G.gustT -= 1/60;
+  if (G.gustT <= 0){
+    G.gustT = diff.gustEvery * (0.7 + G.rng()*0.6);
+    p = aheadPos(500, 900, 2.0);
+    var ga = G.windA + (G.rng()-0.5)*0.5;
+    G.gusts.push({ x:p.x, y:p.y, a: ga,
+      w: 70 + G.rng()*50, l: 220 + G.rng()*140,
+      strength: 0.7 + G.rng()*0.5, ph: G.rng()*10 });
+  }
+  /* ambient dust motes */
+  if (!G.dust.length){
+    for (var s = 0; s < 50; s++){
+      G.dust.push({ x: G.rng()*2000-1000, y: G.rng()*2000-1000, r: 1+G.rng()*2, ph: G.rng()*10 });
+    }
+  }
+}
+function cullFar(){
+  var cx = G.camx, cy = G.camy;
+  function near(e){ return Math.abs(e.x-cx) < 1250 && Math.abs(e.y-cy) < 1250; }
+  G.rocks = G.rocks.filter(near);
+  G.devils = G.devils.filter(near);
+  G.gatesArr = G.gatesArr.filter(near);
+  G.gusts = G.gusts.filter(near);
+}
+
+/* One simulation tick. Returns 'wrecked' when the run ends, else ''. */
+function tick(dt){
+  G.t += dt;
+  G.windA = windAt(G.t);
+  var dm = distM();
+  var diff = difficulty(dm);
+  /* steering: drag target sets a desired heading; keyboard turns directly */
+  var k = G.keys;
+  if (k.left) G.headA -= TURN_RATE*dt;
+  if (k.right) G.headA += TURN_RATE*dt;
+  if (G.dragging && !k.left && !k.right){
+    var dx = G.tx - G.px, dy = G.ty - G.py;
+    if (Math.sqrt(dx*dx+dy*dy) > 30){
+      var want = Math.atan2(dy, dx);
+      var dA = wrapAngle(want - G.headA);
+      G.headA += clamp(dA, -TURN_RATE*dt, TURN_RATE*dt);
+    }
+  }
+  /* speed from point of sail, gust boost, gate kick */
+  var gs = gustStrengthAt(G.px, G.py, G.gusts);
+  var boost = boostFor(gs, G.headA, G.windA);
+  if (G.gateKick > 0){ boost *= GATE_KICK; G.gateKick -= dt; }
+  var spd = kartSpeed(G.headA, G.windA, boost);
+  G.px += Math.cos(G.headA)*spd*dt;
+  G.py += Math.sin(G.headA)*spd*dt;
+  G.dist += spd*dt;
+  /* sail snap on gust entry */
+  var boosted = gs > 0;
+  if (boosted && !G.wasBoosted){ AU.snap(); G.snapT = 1.0; }
+  G.wasBoosted = boosted;
+  if (G.snapT > 0) G.snapT -= dt;
+  AU.setWind(spd / BASE_SPEED);
+  if (G.invuln > 0) G.invuln -= dt;
+  spawnAhead(); cullFar();
+  /* gusts sweep along the wind */
+  var wvx = Math.cos(G.windA)*GUST_SPEED, wvy = Math.sin(G.windA)*GUST_SPEED;
+  for (var gi = 0; gi < G.gusts.length; gi++){
+    var gu = G.gusts[gi];
+    gu.x += wvx*dt; gu.y += wvy*dt;
+  }
+  /* dust devils drift and wander */
+  for (var di = 0; di < G.devils.length; di++){
+    var dv = G.devils[di];
+    dv.ph += dt;
+    dv.x += (dv.vx + Math.cos(dv.ph*1.7)*30)*dt;
+    dv.y += (dv.vy + Math.sin(dv.ph*1.3)*30)*dt;
+  }
+  /* gates */
+  for (var qi = G.gatesArr.length-1; qi >= 0; qi--){
+    var gt = G.gatesArr[qi];
+    if (!gt.counted && touching(G.px, G.py, KART_R, gt.x, gt.y, gt.r)){
+      gt.counted = true;
+      G.gates++; G.gateKick = GATE_KICK_T;
+      AU.chime();
+      toast('Gate threaded');
+      G.gatesArr.splice(qi,1);
+    }
+  }
+  /* rocks */
+  for (var ri = 0; ri < G.rocks.length; ri++){
+    var rk = G.rocks[ri];
+    if (touching(G.px, G.py, KART_R, rk.x, rk.y, rk.r) && G.invuln <= 0){
+      G.hull -= 1; G.invuln = INVULN_T;
+      AU.thud();
+      toast(G.hull > 0 ? 'Hull cracked' : 'Hull gone');
+      if (G.hull <= 0) return 'wrecked';
+    }
+  }
+  /* dust devils */
+  for (var vi = 0; vi < G.devils.length; vi++){
+    var vv = G.devils[vi];
+    if (touching(G.px, G.py, KART_R, vv.x, vv.y, vv.r) && G.invuln <= 0){
+      G.hull -= 1; G.invuln = INVULN_T;
+      AU.thud();
+      toast(G.hull > 0 ? 'Caught by a devil' : 'Hull gone');
+      if (G.hull <= 0) return 'wrecked';
+    }
+  }
+  /* camera follows */
+  G.camx = lerp(G.camx, G.px, Math.min(1, dt*4));
+  G.camy = lerp(G.camy, G.py - 60, Math.min(1, dt*4));
+  return '';
+}
+
+/* ---------- rendering ---------- */
+var cv = document.getElementById('game');
+var cx2d = cv.getContext('2d');
+var DPR = 1, W = 0, H = 0;
+var reduceMotion = (typeof matchMedia !== 'undefined') && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function fitCanvas(){
+  DPR = Math.min(3, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+}
+window.addEventListener('resize', fitCanvas); fitCanvas();
+
+function render(){
+  cx2d.setTransform(DPR,0,0,DPR,0,0);
+  /* big sky gradient: pale blue to warm horizon */
+  var sky = cx2d.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0, '#a8cade');
+  sky.addColorStop(0.55, '#cfe0e8');
+  sky.addColorStop(0.8, '#f6e3c2');
+  sky.addColorStop(1, '#f4f1e8');
+  cx2d.fillStyle = sky; cx2d.fillRect(0,0,W,H);
+  /* salt flats below the horizon */
+  var horizon = H*0.32;
+  cx2d.fillStyle = '#f4f1e8';
+  cx2d.fillRect(0, horizon, W, H-horizon);
+  var ox = W/2 - G.camx, oy = H*0.62 - G.camy;
+  var px = G.px + ox, py = G.py + oy;
+  /* salt texture: faint cracks */
+  cx2d.strokeStyle = 'rgba(120,110,95,.14)'; cx2d.lineWidth = 1;
+  var gx0 = Math.floor((G.camx-800)/160)*160, gx1 = Math.ceil((G.camx+800)/160)*160;
+  var gy0 = Math.floor((G.camy-800)/160)*160, gy1 = Math.ceil((G.camy+800)/160)*160;
+  for (var gx = gx0; gx <= gx1; gx += 160){
+    for (var gy = gy0; gy <= gy1; gy += 160){
+      var jx = gx + ((gx*7+gy*13)%40), jy = gy + ((gx*3+gy*11)%40);
+      cx2d.beginPath(); cx2d.moveTo(jx+ox, jy+oy);
+      cx2d.lineTo(jx+60+ox, jy+24+oy); cx2d.lineTo(jx+130+ox, jy-14+oy); cx2d.stroke();
+    }
+  }
+  /* heat shimmer bands */
+  if (!reduceMotion){
+    cx2d.strokeStyle = 'rgba(255,255,255,.35)'; cx2d.lineWidth = 2;
+    for (var s = 0; s < 4; s++){
+      var sy = horizon + 30 + s*46 + Math.sin(G.t*1.8 + s*2)*6;
+      cx2d.beginPath();
+      for (var sx = 0; sx <= W; sx += 24){
+        var wy = sy + Math.sin(sx*0.05 + G.t*3 + s)*3;
+        if (sx === 0) cx2d.moveTo(sx, wy); else cx2d.lineTo(sx, wy);
+      }
+      cx2d.stroke();
+    }
+  }
+  /* gust streaks: pale blue-white bands on the salt */
+  for (var gi = 0; gi < G.gusts.length; gi++){
+    var gu = G.gusts[gi], gex = gu.x+ox, gey = gu.y+oy;
+    if (gex < -400 || gex > W+400 || gey < -400 || gey > H+400) continue;
+    cx2d.save(); cx2d.translate(gex, gey); cx2d.rotate(gu.a);
+    var pulse = reduceMotion ? 0.75 : 0.6 + 0.25*Math.sin(G.t*4 + gu.ph);
+    var gg = cx2d.createLinearGradient(-gu.l, 0, gu.l, 0);
+    gg.addColorStop(0, 'rgba(120,180,230,0)');
+    gg.addColorStop(0.5, 'rgba(140,195,240,'+(0.55*pulse)+')');
+    gg.addColorStop(1, 'rgba(120,180,230,0)');
+    cx2d.fillStyle = gg;
+    cx2d.beginPath(); cx2d.ellipse(0, 0, gu.l, gu.w, 0, 0, 7); cx2d.fill();
+    cx2d.strokeStyle = 'rgba(90,150,210,'+(0.5*pulse)+')'; cx2d.lineWidth = 2;
+    for (var sl = -1; sl <= 1; sl++){
+      cx2d.beginPath(); cx2d.moveTo(-gu.l*0.8, sl*gu.w*0.5);
+      cx2d.lineTo(gu.l*0.8, sl*gu.w*0.5); cx2d.stroke();
+    }
+    cx2d.restore();
+  }
+  /* gates: two orange flags */
+  for (var qi = 0; qi < G.gatesArr.length; qi++){
+    var gt = G.gatesArr[qi], qx = gt.x+ox, qy = gt.y+oy;
+    if (qx < -80 || qx > W+80 || qy < -80 || qy > H+80) continue;
+    cx2d.strokeStyle = '#8a5a2a'; cx2d.lineWidth = 4;
+    cx2d.beginPath(); cx2d.moveTo(qx-GATE_R, qy-40); cx2d.lineTo(qx-GATE_R, qy+40); cx2d.stroke();
+    cx2d.beginPath(); cx2d.moveTo(qx+GATE_R, qy-40); cx2d.lineTo(qx+GATE_R, qy+40); cx2d.stroke();
+    var flap = reduceMotion ? 0 : Math.sin(G.t*6 + gt.ph)*6;
+    cx2d.fillStyle = '#e07b2a';
+    cx2d.beginPath(); cx2d.moveTo(qx-GATE_R, qy-40);
+    cx2d.lineTo(qx-GATE_R+34+flap, qy-32); cx2d.lineTo(qx-GATE_R, qy-24); cx2d.closePath(); cx2d.fill();
+    cx2d.beginPath(); cx2d.moveTo(qx+GATE_R, qy-40);
+    cx2d.lineTo(qx+GATE_R+34+flap, qy-32); cx2d.lineTo(qx+GATE_R, qy-24); cx2d.closePath(); cx2d.fill();
+    cx2d.strokeStyle = 'rgba(224,123,42,.35)'; cx2d.lineWidth = 2; cx2d.setLineDash([6,6]);
+    cx2d.beginPath(); cx2d.arc(qx, qy, GATE_R, 0, 7); cx2d.stroke(); cx2d.setLineDash([]);
+  }
+  /* rocks */
+  for (var ri = 0; ri < G.rocks.length; ri++){
+    var rk = G.rocks[ri], rx = rk.x+ox, ry = rk.y+oy;
+    if (rx < -80 || rx > W+80 || ry < -80 || ry > H+80) continue;
+    cx2d.fillStyle = '#8d8478';
+    cx2d.beginPath();
+    cx2d.moveTo(rx-rk.r, ry+rk.r*0.5); cx2d.lineTo(rx-rk.r*0.4, ry-rk.r*0.7);
+    cx2d.lineTo(rx+rk.r*0.5, ry-rk.r*0.4); cx2d.lineTo(rx+rk.r, ry+rk.r*0.6); cx2d.closePath(); cx2d.fill();
+    cx2d.fillStyle = 'rgba(255,255,255,.25)';
+    cx2d.beginPath();
+    cx2d.moveTo(rx-rk.r*0.4, ry-rk.r*0.7); cx2d.lineTo(rx+rk.r*0.1, ry-rk.r*0.55); cx2d.lineTo(rx-rk.r*0.1, ry-rk.r*0.1);
+    cx2d.closePath(); cx2d.fill();
+  }
+  /* dust devils: tan spiral columns */
+  for (var vi = 0; vi < G.devils.length; vi++){
+    var dv = G.devils[vi], vx = dv.x+ox, vy = dv.y+oy;
+    if (vx < -100 || vx > W+100 || vy < -100 || vy > H+100) continue;
+    var swirl = reduceMotion ? 0 : G.t*5 + dv.ph;
+    for (var ring = 0; ring < 3; ring++){
+      var rr = dv.r*(0.5 + ring*0.35);
+      var ro = reduceMotion ? 0 : Math.sin(swirl + ring*2)*8;
+      cx2d.strokeStyle = 'rgba(190,160,120,'+(0.55 - ring*0.12)+')';
+      cx2d.lineWidth = 7 - ring*1.5;
+      cx2d.beginPath(); cx2d.arc(vx+ro, vy - ring*14, rr, 0, 7); cx2d.stroke();
+    }
+  }
+  /* drifting dust motes */
+  cx2d.fillStyle = 'rgba(190,170,140,.5)';
+  for (var m = 0; m < G.dust.length; m++){
+    var mo = G.dust[m];
+    var wvx = Math.cos(G.windA), wvy = Math.sin(G.windA);
+    var mx = (((mo.x - G.camx*0.85 + (reduceMotion?0:G.t*wvx*60)) % 1600)+1600)%1600 - 800 + W/2;
+    var my = (((mo.y - G.camy*0.85 + (reduceMotion?0:G.t*wvy*60)) % 1600)+1600)%1600 - 800 + H/2;
+    cx2d.beginPath(); cx2d.arc(mx, my, mo.r, 0, 7); cx2d.fill();
+  }
+  /* the sail kart */
+  var blink = G.invuln > 0 && Math.floor(G.t*10)%2 === 0;
+  if (!blink){
+    cx2d.save(); cx2d.translate(px, py); cx2d.rotate(G.headA);
+    /* speed lines when boosted */
+    if (G.snapT > 0 && !reduceMotion){
+      cx2d.strokeStyle = 'rgba(47,127,196,'+(0.6*G.snapT)+')'; cx2d.lineWidth = 3;
+      for (var sl2 = -2; sl2 <= 2; sl2++){
+        cx2d.beginPath(); cx2d.moveTo(-70, sl2*18); cx2d.lineTo(-40, sl2*18); cx2d.stroke();
+      }
+    }
+    /* wheels */
+    cx2d.fillStyle = '#2b3a44';
+    cx2d.beginPath(); cx2d.arc(-14, -16, 7, 0, 7); cx2d.fill();
+    cx2d.beginPath(); cx2d.arc(-14, 16, 7, 0, 7); cx2d.fill();
+    cx2d.beginPath(); cx2d.arc(16, 0, 7, 0, 7); cx2d.fill();
+    /* hull */
+    cx2d.fillStyle = '#e07b2a';
+    cx2d.beginPath();
+    if (cx2d.roundRect) cx2d.roundRect(-20,-9,40,18,5); else cx2d.rect(-20,-9,40,18);
+    cx2d.fill();
+    /* mast + sail, trimmed to the wind: sail angle shows the point of sail */
+    var off = Math.abs(wrapAngle(G.headA - G.windA));
+    var trim = clamp(off/(Math.PI/2), 0, 1)*0.9;
+    cx2d.strokeStyle = '#1d2b33'; cx2d.lineWidth = 3;
+    cx2d.beginPath(); cx2d.moveTo(0, 0); cx2d.lineTo(0, -46); cx2d.stroke();
+    cx2d.fillStyle = '#fdfbf5';
+    cx2d.strokeStyle = '#1d2b33'; cx2d.lineWidth = 2;
+    cx2d.beginPath(); cx2d.moveTo(0, -46);
+    cx2d.lineTo(-34*Math.sin(trim), -46+40*Math.cos(trim*0.4));
+    cx2d.lineTo(0, -6); cx2d.closePath(); cx2d.fill(); cx2d.stroke();
+    /* telltale ribbon streams downwind */
+    var ttx = Math.cos(G.windA)*26, tty = Math.sin(G.windA)*26;
+    cx2d.strokeStyle = '#c0392b'; cx2d.lineWidth = 2.5;
+    cx2d.beginPath(); cx2d.moveTo(0, -48);
+    cx2d.quadraticCurveTo(ttx*0.5, -48+tty*0.5-6, ttx, -48+tty); cx2d.stroke();
+    cx2d.restore();
+  }
+  /* soft vignette */
+  var vg = cx2d.createRadialGradient(W/2,H/2,Math.min(W,H)*0.45, W/2,H/2, Math.max(W,H)*0.8);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(60,50,30,.18)');
+  cx2d.fillStyle = vg; cx2d.fillRect(0,0,W,H);
+}
+
+/* ---------- HUD / overlays ---------- */
+var el = function(id){ return document.getElementById(id); };
+var toastT = null;
+function toast(msg){
+  var t = el('toast'); t.textContent = msg; t.classList.add('show');
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(function(){ t.classList.remove('show'); }, 1600);
+}
+function hud(){
+  el('distPill').textContent = Math.floor(distM()) + ' m';
+  var hull = '';
+  for (var i = 0; i < HULL_MAX; i++) hull += i < G.hull ? '◆' : '◇';
+  el('hullPill').textContent = hull;
+  /* wind arrow: the glyph points down at rest (screen angle PI/2),
+     so rotate by windA - PI/2 to point along the wind. */
+  var screenA = G.windA - Math.PI/2;
+  el('windArrow').style.transform = 'rotate(' + screenA + 'rad)';
+}
+function showStart(){
+  var b = Math.floor(store.get(K.best, 0));
+  el('startBest').textContent = b > 0 ? 'Best run: ' + b + ' m' : 'No runs yet. The flats are waiting.';
+  el('startOv').hidden = false; el('overOv').hidden = true; el('pauseOv').hidden = true;
+}
+function startRun(){
+  AU.init();
+  if (AU.ctx && AU.ctx.state === 'suspended') AU.ctx.resume();
+  store.set(K.games, store.get(K.games, 0) + 1);
+  G = newRun(Date.now() % 2147483647);
+  G.started = true;
+  el('startOv').hidden = true; el('overOv').hidden = true; el('pauseOv').hidden = true;
+  toast('Read the wind. Ride the gusts.');
+}
+function endRun(){
+  G.over = true;
+  AU.gameover();
+  var dm = Math.floor(distM());
+  var score = scoreFor(dm, G.gates);
+  var best = Math.floor(store.get(K.best, 0));
+  var isBest = dm > best;
+  if (isBest) store.set(K.best, dm);
+  store.set(K.gates, store.get(K.gates, 0) + G.gates);
+  el('overTitle').textContent = 'BEACHED';
+  el('overSub').textContent = 'Three plates, and the flats kept all three. The wind is still out there.';
+  el('stDist').textContent = dm;
+  el('stGates').textContent = G.gates;
+  el('stScore').textContent = score;
+  el('overBest').textContent = isBest ? 'New best run.' : 'Best run: ' + Math.max(best, dm) + ' m';
+  el('overOv').hidden = false;
+}
+function setPaused(p){
+  if (!G || !G.started || G.over) return;
+  G.paused = p;
+  el('pauseOv').hidden = !p;
+}
+
+/* ---------- input ---------- */
+var dragId = null;
+cv.addEventListener('pointerdown', function(ev){
+  if (!G || !G.started || G.over || G.paused) return;
+  dragId = ev.pointerId;
+  G.dragging = true;
+  /* drag target in world coords: offset from kart by the drag vector */
+  G.tx = G.px + (ev.clientX - W/2)*1.15;
+  G.ty = G.py + (ev.clientY - H*0.62)*1.15;
+  try{ cv.setPointerCapture(ev.pointerId); }catch(e){}
+});
+cv.addEventListener('pointermove', function(ev){
+  if (ev.pointerId !== dragId || !G) return;
+  G.tx = G.px + (ev.clientX - W/2)*1.15;
+  G.ty = G.py + (ev.clientY - H*0.62)*1.15;
+});
+function endDrag(ev){
+  if (ev.pointerId !== dragId) return;
+  dragId = null; if (G) G.dragging = false;
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+window.addEventListener('keydown', function(ev){
+  if (!G) return;
+  var k = ev.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') G.keys.left = true;
+  else if (k === 'arrowright' || k === 'd') G.keys.right = true;
+  else if (k === 'p' || k === 'escape') setPaused(!G.paused);
+  else if (k === ' '){ if (!G.started || G.over) startRun(); ev.preventDefault(); }
+});
+window.addEventListener('keyup', function(ev){
+  if (!G) return;
+  var k = ev.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') G.keys.left = false;
+  else if (k === 'arrowright' || k === 'd') G.keys.right = false;
+});
+el('soundBtn').addEventListener('click', function(){ AU.init(); AU.toggle(); hud(); });
+el('pauseBtn').addEventListener('click', function(){ setPaused(true); });
+el('resumeBtn').addEventListener('click', function(){ setPaused(false); });
+el('startBtn').addEventListener('click', startRun);
+el('againBtn').addEventListener('click', startRun);
+document.addEventListener('visibilitychange', function(){
+  if (document.hidden) setPaused(true); /* pause, never end the run */
+});
+
+/* ---------- main loop ---------- */
+var lastT = 0;
+function frame(ts){
+  requestAnimationFrame(frame);
+  if (!G || !G.started) { if (G) render(); return; }
+  if (G.paused || G.over){ render(); hud(); return; }
+  var dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016);
+  lastT = ts;
+  var end = tick(dt);
+  if (end) endRun();
+  render(); hud();
+}
+G = newRun(12345);
+AU.on = store.get(K.sound, 1) === 1;
+showStart();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
