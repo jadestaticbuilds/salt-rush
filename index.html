@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script>
+/* ?view=desktop preview: force desktop theme on narrow screens */
+try {
+  if (new URLSearchParams(location.search).get("view") === "desktop") {
+    document.querySelector('meta[name="viewport"]').setAttribute("content", "width=1280");
+  }
+} catch (e) {}
+</script>
 <title>Salt Rush</title>
 <style>
   :root{
@@ -54,6 +62,18 @@
     background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 16px;
     font-size:13px;font-weight:700;color:var(--ink);z-index:6;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;}
   #toast.show{opacity:1;}
+/* --- Desktop (Tier 5 desktop-readiness): centered play column at 1024px and up.
+   Phone CSS above is untouched. fitCanvas measures the canvas element and input
+   maps through its bounding rect, so the game field follows the column. --- */
+@media (min-width:1024px){
+  #game{left:50%;right:auto;transform:translateX(-50%);width:min(560px,100vw);}
+  #hud{left:50%;right:auto;transform:translateX(-50%);width:min(560px,100vw);}
+  .overlay{left:50%;right:auto;transform:translateX(-50%);width:min(560px,100vw);}
+  #toast{white-space:normal;max-width:min(520px,92vw);text-align:center;}
+}
+@media (min-width:1440px){
+  #game,#hud,.overlay{width:min(620px,100vw);}
+}
 </style>
 </head>
 <body>
@@ -445,7 +465,7 @@ var DPR = 1, W = 0, H = 0;
 var reduceMotion = (typeof matchMedia !== 'undefined') && matchMedia('(prefers-reduced-motion: reduce)').matches;
 function fitCanvas(){
   DPR = Math.min(3, window.devicePixelRatio || 1);
-  W = window.innerWidth; H = window.innerHeight;
+  W = cv.clientWidth || window.innerWidth; H = cv.clientHeight || window.innerHeight;
   cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
 }
 window.addEventListener('resize', fitCanvas); fitCanvas();
@@ -665,14 +685,16 @@ cv.addEventListener('pointerdown', function(ev){
   dragId = ev.pointerId;
   G.dragging = true;
   /* drag target in world coords: offset from kart by the drag vector */
-  G.tx = G.px + (ev.clientX - W/2)*1.15;
-  G.ty = G.py + (ev.clientY - H*0.62)*1.15;
+  var sr = cv.getBoundingClientRect();
+  G.tx = G.px + (ev.clientX - sr.left - W/2)*1.15;
+  G.ty = G.py + (ev.clientY - sr.top - H*0.62)*1.15;
   try{ cv.setPointerCapture(ev.pointerId); }catch(e){}
 });
 cv.addEventListener('pointermove', function(ev){
   if (ev.pointerId !== dragId || !G) return;
-  G.tx = G.px + (ev.clientX - W/2)*1.15;
-  G.ty = G.py + (ev.clientY - H*0.62)*1.15;
+  var sr = cv.getBoundingClientRect();
+  G.tx = G.px + (ev.clientX - sr.left - W/2)*1.15;
+  G.ty = G.py + (ev.clientY - sr.top - H*0.62)*1.15;
 });
 function endDrag(ev){
   if (ev.pointerId !== dragId) return;
